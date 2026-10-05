@@ -6,77 +6,53 @@
 
 using namespace std;
 
-// ANSI color codes for console output
-namespace Colors {
-    const string RESET = "\x1b[0m";
-    const string BOLD = "\x1b[1m";
-    const string GREEN = "\x1b[32m";
-    const string RED = "\x1b[31m";
-    const string YELLOW = "\x1b[33m";
-    const string CYAN = "\x1b[36m";
-    const string BLUE = "\x1b[34m";
-}
-
-void enableConsoleColors() {
-    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (hOut == INVALID_HANDLE_VALUE) return;
-
-    DWORD dwMode = 0;
-    if (!GetConsoleMode(hOut, &dwMode)) return;
-
-    dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-    SetConsoleMode(hOut, dwMode);
-}
-
 void printHeader(const string& text) {
-    cout << "\n" << Colors::BOLD << Colors::CYAN << "======================================================\n";
+    cout << "\n======================================================\n";
     cout << "  " << text << "\n";
-    cout << "======================================================" << Colors::RESET << "\n\n";
+    cout << "======================================================\n\n";
 }
 
 void printSuccess(const string& message) {
-    cout << Colors::GREEN << "✓ " << message << Colors::RESET << "\n";
+    cout << "[SUCCESS] " << message << "\n";
 }
 
 void printError(const string& message) {
-    cout << Colors::RED << "✗ " << message << Colors::RESET << "\n";
+    cout << "[ERROR] " << message << "\n";
 }
 
 void printWarning(const string& message) {
-    cout << Colors::YELLOW << "⚠ " << message << Colors::RESET << "\n";
+    cout << "[WARNING] " << message << "\n";
 }
 
 void printInfo(const string& message) {
-    cout << Colors::BLUE << "ℹ " << message << Colors::RESET << "\n";
+    cout << "[INFO] " << message << "\n";
 }
 
 void printRecipe(const Recipe& recipe) {
-    cout << Colors::BOLD << Colors::CYAN << "\n  " << recipe.name << Colors::RESET << "\n";
-    cout << "  " << string(recipe.name.length(), '-') << "\n";
-
-    cout << "  Prep Time:  " << recipe.prepTime << "\n";
-    cout << "  Cook Time:  " << recipe.cookTime << "\n";
-    cout << "  Servings:   " << recipe.servings << "\n";
+    cout << "\n--- " << recipe.name << " ---\n";
+    cout << "Prep Time:  " << recipe.prepTime << "\n";
+    cout << "Cook Time:  " << recipe.cookTime << "\n";
+    cout << "Servings:   " << recipe.servings << "\n";
 
     if (!recipe.notes.empty()) {
-        cout << "  Notes:      " << recipe.notes << "\n";
+        cout << "Notes:      " << recipe.notes << "\n";
     }
 
-    cout << "\n  " << Colors::YELLOW << "Ingredients:" << Colors::RESET << "\n";
+    cout << "\nIngredients:\n";
     if (recipe.ingredients.empty()) {
-        cout << "    (none)\n";
+        cout << "  (none)\n";
     } else {
         for (size_t i = 0; i < recipe.ingredients.size(); ++i) {
-            cout << "    " << (i + 1) << ". " << recipe.ingredients[i] << "\n";
+            cout << "  " << (i + 1) << ". " << recipe.ingredients[i] << "\n";
         }
     }
 
-    cout << "\n  " << Colors::YELLOW << "Instructions:" << Colors::RESET << "\n";
+    cout << "\nInstructions:\n";
     if (recipe.instructions.empty()) {
-        cout << "    (none)\n";
+        cout << "  (none)\n";
     } else {
         for (size_t i = 0; i < recipe.instructions.size(); ++i) {
-            cout << "    " << (i + 1) << ". " << recipe.instructions[i] << "\n";
+            cout << "  " << (i + 1) << ". " << recipe.instructions[i] << "\n";
         }
     }
 
@@ -84,14 +60,11 @@ void printRecipe(const Recipe& recipe) {
 }
 
 int main() {
-    enableConsoleColors();
-
-    cout << "\n" << Colors::BOLD << Colors::BLUE;
+    cout << "\n";
     cout << "╔════════════════════════════════════════════════════╗\n";
     cout << "║     Recipe Organizer - Parser & Manager Tests      ║\n";
     cout << "║                    v2.0 (Testing)                  ║\n";
-    cout << "╚════════════════════════════════════════════════════╝\n";
-    cout << Colors::RESET << "\n";
+    cout << "╚════════════════════════════════════════════════════╝\n\n";
 
     // ========================================
     // TEST 1: Single Recipe File Parsing
@@ -99,7 +72,7 @@ int main() {
     printHeader("TEST 1: Single Recipe File Parsing");
 
     cout << "Enter the path to a .txt recipe file to test:\n";
-    cout << Colors::YELLOW << "> " << Colors::RESET;
+    cout << "> ";
     
     string singleFilePath;
     getline(cin, singleFilePath);
@@ -107,6 +80,7 @@ int main() {
     if (singleFilePath.empty()) {
         printWarning("No file path provided. Skipping single file test.");
     } else {
+        cout << "\nParsing file: " << singleFilePath << "\n";
         Recipe singleRecipe = RecipeParser::parseRecipeFile(singleFilePath);
 
         if (singleRecipe.name.find("Error") != string::npos) {
@@ -136,7 +110,7 @@ int main() {
     printHeader("TEST 2: Folder Import (Multiple Files)");
 
     cout << "Enter the path to a folder containing .txt recipe files:\n";
-    cout << Colors::YELLOW << "> " << Colors::RESET;
+    cout << "> ";
 
     string folderPath;
     getline(cin, folderPath);
@@ -144,6 +118,7 @@ int main() {
     if (folderPath.empty()) {
         printWarning("No folder path provided. Skipping folder import test.");
     } else {
+        cout << "\nScanning folder: " << folderPath << "\n";
         vector<Recipe> importedRecipes = RecipeParser::parseRecipeFolder(folderPath);
 
         if (importedRecipes.empty()) {
@@ -196,7 +171,7 @@ int main() {
         printHeader("TEST 4: Search Functionality");
 
         cout << "Enter a search keyword (recipe name or ingredient):\n";
-        cout << Colors::YELLOW << "> " << Colors::RESET;
+        cout << "> ";
 
         string searchKeyword;
         getline(cin, searchKeyword);
@@ -301,18 +276,18 @@ int main() {
     // ========================================
     printHeader("TEST SUMMARY");
 
-    cout << Colors::BOLD << "Parser Tests:" << Colors::RESET << "\n";
-    cout << "  ✓ Single file parsing\n";
-    cout << "  ✓ Folder multi-file import\n";
-    cout << "  ✓ Recipe section extraction (name, ingredients, instructions, notes)\n";
+    cout << "Parser Tests:\n";
+    cout << "  [OK] Single file parsing\n";
+    cout << "  [OK] Folder multi-file import\n";
+    cout << "  [OK] Recipe section extraction (name, ingredients, instructions, notes)\n";
 
-    cout << "\n" << Colors::BOLD << "Manager Tests:" << Colors::RESET << "\n";
-    cout << "  ✓ Recipe collection management\n";
-    cout << "  ✓ Search functionality\n";
-    cout << "  ✓ Database save/load\n";
-    cout << "  ✓ Data integrity validation\n";
+    cout << "\nManager Tests:\n";
+    cout << "  [OK] Recipe collection management\n";
+    cout << "  [OK] Search functionality\n";
+    cout << "  [OK] Database save/load\n";
+    cout << "  [OK] Data integrity validation\n";
 
-    cout << "\n" << Colors::BOLD << Colors::GREEN << "STATUS: All core logic tests completed!" << Colors::RESET << "\n";
+    cout << "\nSTATUS: All core logic tests completed!\n";
     cout << "\nNext Steps:\n";
     cout << "  1. Review the test results above\n";
     cout << "  2. Fix any parsing issues with recipe file format\n";
