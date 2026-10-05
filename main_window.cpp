@@ -15,7 +15,11 @@ UILayout* g_layout = nullptr;
 HWND g_hwndRecipeList = nullptr;
 HWND g_hwndSearchBox = nullptr;
 HWND g_hwndDetailView = nullptr;
+HWND g_hwndButtonImport = nullptr;
+HWND g_hwndButtonSave = nullptr;
+HWND g_hwndButtonLoad = nullptr;
 int g_selectedRecipeIndex = -1;
+int g_detailScrollOffset = 0;
 
 // Forward declarations
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -26,20 +30,6 @@ void OnLoadDatabase(HWND hwnd);
 void OnSearch(HWND hwnd);
 void RefreshRecipeList(HWND hwnd, const std::vector<Recipe*>& recipes);
 void DisplayRecipeDetail(HWND hwnd, int index);
-
-std::string WideToString(const wchar_t* wide) {
-    int size_needed = WideCharToMultiByte(CP_UTF8, 0, wide, -1, NULL, 0, NULL, NULL);
-    std::string str(size_needed - 1, 0);
-    WideCharToMultiByte(CP_UTF8, 0, wide, -1, &str[0], size_needed, NULL, NULL);
-    return str;
-}
-
-std::wstring StringToWide(const std::string& str) {
-    int size_needed = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, NULL, 0);
-    std::wstring wstr(size_needed - 1, 0);
-    MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, &wstr[0], size_needed);
-    return wstr;
-}
 
 std::string BrowseForFolder(HWND hwnd) {
     BROWSEINFOA bi = {};
@@ -64,10 +54,11 @@ void OnPaint(HWND hwnd) {
     PAINTSTRUCT ps;
     HDC hdc = BeginPaint(hwnd, &ps);
 
-    // Draw background
     RECT rect;
     GetClientRect(hwnd, &rect);
-    HBRUSH hBrush = CreateSolidBrush(WinUIHelper::COLOR_LIGHT_BG);
+    
+    // Draw background
+    HBRUSH hBrush = CreateSolidBrush(RGB(242, 242, 242));
     FillRect(hdc, &rect, hBrush);
     DeleteObject(hBrush);
 
@@ -78,8 +69,11 @@ void OnPaint(HWND hwnd) {
     DeleteObject(hBrush);
 
     // Draw header title
-    HFONT hFont = WinUIHelper::createSegoeUIFont(16, true);
-    WinUIHelper::drawText(hdc, "Recipe Organizer", 15, 15, RGB(255, 255, 255), hFont);
+    HFONT hFont = WinUIHelper::createSegoeUIFont(18, true);
+    SetTextColor(hdc, RGB(255, 255, 255));
+    SetBkMode(hdc, TRANSPARENT);
+    SelectObject(hdc, hFont);
+    TextOutA(hdc, 15, 15, "Recipe Organizer", 16);
     DeleteObject(hFont);
 
     // Draw left panel border
@@ -102,7 +96,6 @@ void OnImportFolder(HWND hwnd) {
     std::string message = "Imported " + std::to_string(count) + " recipe(s)";
     MessageBoxA(hwnd, message.c_str(), "Import Complete", MB_OK | MB_ICONINFORMATION);
 
-    // Refresh list
     const auto& recipes = g_manager->getAllRecipes();
     std::vector<Recipe*> recipeRefs;
     for (auto& recipe : recipes) {
@@ -162,11 +155,13 @@ void DisplayRecipeDetail(HWND hwnd, int index) {
     const auto& recipes = g_manager->getAllRecipes();
     if (index < 0 || index >= (int)recipes.size()) {
         g_selectedRecipeIndex = -1;
+        g_detailScrollOffset = 0;
         InvalidateRect(g_hwndDetailView, nullptr, TRUE);
         return;
     }
 
     g_selectedRecipeIndex = index;
+    g_detailScrollOffset = 0;
     InvalidateRect(g_hwndDetailView, nullptr, TRUE);
 }
 
@@ -179,74 +174,103 @@ LRESULT CALLBACK DetailViewProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         GetClientRect(hwnd, &rect);
 
         // Draw background
-        HBRUSH hBrush = CreateSolidBrush(RGB(250, 250, 250));
+        HBRUSH hBrush = CreateSolidBrush(RGB(255, 255, 255));
         FillRect(hdc, &rect, hBrush);
         DeleteObject(hBrush);
 
         if (g_selectedRecipeIndex >= 0 && g_selectedRecipeIndex < (int)g_manager->getAllRecipes().size()) {
             const auto& recipe = g_manager->getAllRecipes()[g_selectedRecipeIndex];
-            int y = 20;
+            int y = 20 - g_detailScrollOffset;
 
             // Recipe name
-            HFONT hFont = WinUIHelper::createSegoeUIFont(14, true);
-            WinUIHelper::drawText(hdc, recipe.name, 20, y, RGB(0, 120, 215), hFont);
+            HFONT hFont = WinUIHelper::createSegoeUIFont(16, true);
+            SetTextColor(hdc, RGB(0, 120, 215));
+            SetBkMode(hdc, TRANSPARENT);
+            SelectObject(hdc, hFont);
+            TextOutA(hdc, 20, y, recipe.name.c_str(), (int)recipe.name.length());
             DeleteObject(hFont);
-            y += 40;
+            y += 35;
 
             // Prep time, cook time, servings
-            hFont = WinUIHelper::createSegoeUIFont(10, false);
+            hFont = WinUIHelper::createSegoeUIFont(12, false);
+            SetTextColor(hdc, RGB(64, 64, 64));
+            SelectObject(hdc, hFont);
+            
             std::string prepText = "Prep: " + recipe.prepTime;
-            WinUIHelper::drawText(hdc, prepText, 20, y, RGB(64, 64, 64), hFont);
-            y += 22;
+            TextOutA(hdc, 20, y, prepText.c_str(), (int)prepText.length());
+            y += 26;
 
             std::string cookText = "Cook: " + recipe.cookTime;
-            WinUIHelper::drawText(hdc, cookText, 20, y, RGB(64, 64, 64), hFont);
-            y += 22;
+            TextOutA(hdc, 20, y, cookText.c_str(), (int)cookText.length());
+            y += 26;
 
             std::string servText = "Servings: " + recipe.servings;
-            WinUIHelper::drawText(hdc, servText, 20, y, RGB(64, 64, 64), hFont);
+            TextOutA(hdc, 20, y, servText.c_str(), (int)servText.length());
             y += 35;
 
             // Ingredients header
-            hFont = WinUIHelper::createSegoeUIFont(11, true);
-            WinUIHelper::drawText(hdc, "Ingredients:", 20, y, RGB(0, 120, 215), hFont);
+            hFont = WinUIHelper::createSegoeUIFont(13, true);
+            SetTextColor(hdc, RGB(0, 120, 215));
+            SelectObject(hdc, hFont);
+            TextOutA(hdc, 20, y, "Ingredients:", 12);
             DeleteObject(hFont);
-            y += 22;
+            y += 28;
 
-            hFont = WinUIHelper::createSegoeUIFont(9, false);
-            for (size_t i = 0; i < recipe.ingredients.size() && y < rect.bottom - 100; ++i) {
+            hFont = WinUIHelper::createSegoeUIFont(11, false);
+            SetTextColor(hdc, RGB(64, 64, 64));
+            SelectObject(hdc, hFont);
+            
+            for (size_t i = 0; i < recipe.ingredients.size() && y < rect.bottom - 50; ++i) {
                 std::string ingText = std::to_string(i + 1) + ". " + recipe.ingredients[i];
-                if (ingText.length() > 80) ingText = ingText.substr(0, 77) + "...";
-                WinUIHelper::drawText(hdc, ingText, 40, y, RGB(64, 64, 64), hFont);
-                y += 18;
+                if (ingText.length() > 90) ingText = ingText.substr(0, 87) + "...";
+                TextOutA(hdc, 40, y, ingText.c_str(), (int)ingText.length());
+                y += 24;
             }
 
-            y += 12;
+            y += 18;
 
             // Instructions header
-            hFont = WinUIHelper::createSegoeUIFont(11, true);
-            WinUIHelper::drawText(hdc, "Instructions:", 20, y, RGB(0, 120, 215), hFont);
+            hFont = WinUIHelper::createSegoeUIFont(13, true);
+            SetTextColor(hdc, RGB(0, 120, 215));
+            SelectObject(hdc, hFont);
+            TextOutA(hdc, 20, y, "Instructions:", 13);
             DeleteObject(hFont);
-            y += 22;
+            y += 28;
 
-            hFont = WinUIHelper::createSegoeUIFont(9, false);
-            int instructionCount = 0;
-            for (size_t i = 0; i < recipe.instructions.size() && y < rect.bottom - 30 && instructionCount < 5; ++i) {
+            hFont = WinUIHelper::createSegoeUIFont(11, false);
+            SetTextColor(hdc, RGB(64, 64, 64));
+            SelectObject(hdc, hFont);
+            
+            int stepCount = 0;
+            for (size_t i = 0; i < recipe.instructions.size() && y < rect.bottom - 20 && stepCount < 8; ++i) {
                 std::string stepText = std::to_string(i + 1) + ". " + recipe.instructions[i];
-                if (stepText.length() > 80) stepText = stepText.substr(0, 77) + "...";
-                WinUIHelper::drawText(hdc, stepText, 40, y, RGB(64, 64, 64), hFont);
-                y += 18;
-                instructionCount++;
+                if (stepText.length() > 90) stepText = stepText.substr(0, 87) + "...";
+                TextOutA(hdc, 40, y, stepText.c_str(), (int)stepText.length());
+                y += 24;
+                stepCount++;
             }
 
             DeleteObject(hFont);
         } else {
-            HFONT hFont = WinUIHelper::createSegoeUIFont(12, false);
-            WinUIHelper::drawText(hdc, "Select a recipe to view details", 20, 20, RGB(128, 128, 128), hFont);
+            HFONT hFont = WinUIHelper::createSegoeUIFont(14, false);
+            SetTextColor(hdc, RGB(128, 128, 128));
+            SetBkMode(hdc, TRANSPARENT);
+            SelectObject(hdc, hFont);
+            TextOutA(hdc, 20, 20, "Select a recipe to view details", 31);
             DeleteObject(hFont);
         }
 
         EndPaint(hwnd, &ps);
+        return 0;
+    }
+    else if (msg == WM_MOUSEWHEEL) {
+        int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+        if (delta > 0) {
+            g_detailScrollOffset = max(0, g_detailScrollOffset - 30);
+        } else {
+            g_detailScrollOffset += 30;
+        }
+        InvalidateRect(hwnd, nullptr, TRUE);
         return 0;
     }
     return DefWindowProcA(hwnd, msg, wParam, lParam);
@@ -259,20 +283,26 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             g_hwndSearchBox = CreateWindowA("EDIT", "", 
                 WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL,
                 g_layout->searchBoxX, g_layout->searchBoxY,
-                g_layout->searchBoxWidth, g_layout->searchBoxHeight,
+                g_layout->searchBoxWidth, 32,
                 hwnd, (HMENU)1001, nullptr, nullptr);
+
+            // Set search box font
+            HFONT hFont = WinUIHelper::createSegoeUIFont(12, false);
+            SendMessageA(g_hwndSearchBox, WM_SETFONT, (WPARAM)hFont, TRUE);
 
             // Recipe list
             g_hwndRecipeList = CreateWindowA("LISTBOX", "",
                 WS_CHILD | WS_VISIBLE | WS_BORDER | WS_VSCROLL | LBS_NOTIFY,
                 g_layout->recipeListX, g_layout->recipeListY,
-                g_layout->recipeListWidth, g_layout->recipeListHeight,
+                g_layout->recipeListWidth, 300,
                 hwnd, (HMENU)1002, nullptr, nullptr);
 
-            // Detail view
+            SendMessageA(g_hwndRecipeList, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+            // Detail view (scrollable)
             WNDCLASSA detailViewClass = {};
             detailViewClass.lpfnWndProc = DetailViewProc;
-            detailViewClass.hbrBackground = (HBRUSH)CreateSolidBrush(RGB(250, 250, 250));
+            detailViewClass.hbrBackground = (HBRUSH)CreateSolidBrush(RGB(255, 255, 255));
             detailViewClass.lpszClassName = "DetailViewClass";
             RegisterClassA(&detailViewClass);
 
@@ -282,26 +312,27 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 g_layout->mainPanelWidth, g_layout->mainPanelHeight,
                 hwnd, (HMENU)1003, nullptr, nullptr);
 
-            // Import button
-            CreateWindowA("BUTTON", "Import Folder",
+            // Buttons with proper sizing and positioning
+            int buttonY = g_layout->recipeListY + 310;
+            int buttonX = g_layout->recipeListX;
+
+            g_hwndButtonImport = CreateWindowA("BUTTON", "Import Folder",
                 WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-                g_layout->recipeListX, g_layout->recipeListY + g_layout->recipeListHeight + 10,
-                g_layout->buttonWidth, g_layout->buttonHeight,
+                buttonX, buttonY, 130, 36,
                 hwnd, (HMENU)2001, nullptr, nullptr);
+            SendMessageA(g_hwndButtonImport, WM_SETFONT, (WPARAM)hFont, TRUE);
 
-            // Save button
-            CreateWindowA("BUTTON", "Save",
+            g_hwndButtonSave = CreateWindowA("BUTTON", "Save",
                 WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-                g_layout->recipeListX + g_layout->buttonWidth + 10, g_layout->recipeListY + g_layout->recipeListHeight + 10,
-                60, g_layout->buttonHeight,
+                buttonX + 140, buttonY, 75, 36,
                 hwnd, (HMENU)2002, nullptr, nullptr);
+            SendMessageA(g_hwndButtonSave, WM_SETFONT, (WPARAM)hFont, TRUE);
 
-            // Load button
-            CreateWindowA("BUTTON", "Load",
+            g_hwndButtonLoad = CreateWindowA("BUTTON", "Load",
                 WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-                g_layout->recipeListX + g_layout->buttonWidth + 75, g_layout->recipeListY + g_layout->recipeListHeight + 10,
-                60, g_layout->buttonHeight,
+                buttonX + 220, buttonY, 75, 36,
                 hwnd, (HMENU)2003, nullptr, nullptr);
+            SendMessageA(g_hwndButtonLoad, WM_SETFONT, (WPARAM)hFont, TRUE);
 
             // Load initial recipes
             g_manager->loadFromDatabase();
@@ -357,7 +388,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     // Initialize manager
     g_manager = new RecipeManager("recipes.dat");
-    g_layout = new UILayout(900, 600);
+    g_layout = new UILayout(900, 700);
 
     // Register window class
     WNDCLASSA wc = {};
@@ -378,7 +409,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         "Recipe Organizer v2.0",
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT,
-        900, 600,
+        900, 700,
         nullptr, nullptr, hInstance, nullptr
     );
 
@@ -390,7 +421,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     ShowWindow(hwnd, nCmdShow);
     UpdateWindow(hwnd);
 
-    // Message loop
     MSG msg = {};
     while (GetMessageA(&msg, nullptr, 0, 0)) {
         TranslateMessage(&msg);
