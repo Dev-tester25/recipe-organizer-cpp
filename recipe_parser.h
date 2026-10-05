@@ -39,11 +39,9 @@ public:
         std::string s = trim(text);
         if (s.empty()) return s;
 
-        // Remove common markdown/bullet prefixes: "1. ", "2) ", "- ", "* "
         size_t pos = 0;
         while (pos < s.size() && (s[pos] == '-' || s[pos] == '*' || s[pos] == '>' || s[pos] == ' ' || s[pos] == '\t')) pos++;
         if (pos < s.size()) {
-            // If it starts with digits + punctuation then drop it
             if (s[pos] >= '0' && s[pos] <= '9') {
                 size_t i = pos;
                 while (i < s.size() && s[i] >= '0' && s[i] <= '9') i++;
