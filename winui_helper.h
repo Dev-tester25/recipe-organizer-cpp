@@ -18,6 +18,7 @@ public:
     static constexpr COLORREF COLOR_HOVER = RGB(55, 55, 55);          // Hover state
     static constexpr COLORREF COLOR_SUCCESS = RGB(16, 124, 16);       // Green
     static constexpr COLORREF COLOR_WARNING = RGB(240, 180, 40);      // Orange
+    static constexpr COLORREF COLOR_YELLOW = RGB(255, 200, 0);        // Yellow
 
     static HFONT createSegoeUIFont(int size, bool bold = false) {
         return CreateFontA(
